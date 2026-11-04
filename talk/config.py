@@ -17,7 +17,7 @@ SETTINGS_PATH = APP_DIR / "settings.json"
 @dataclass
 class Settings:
     api_key: str = ""
-    model: str = "gemini-2.5-flash"
+    model: str = "gemini-3.5-flash-lite"
     daily_goal_min: int = 20
     voice: str = "en-US-AvaMultilingualNeural"
     speed: Literal["slow", "normal", "native"] = "normal"
