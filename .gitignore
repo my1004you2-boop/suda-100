@@ -1,0 +1,10 @@
+data/
+settings.json
+__pycache__/
+.superpowers/
+*.mp3
+*.wav
+.pytest_cache/
+
+# 개발할 때 쓴 작업 계획서 (공개하지 않음)
+docs/superpowers/
