@@ -85,6 +85,8 @@ class Session(_Json):
     messages: list[Message] = field(default_factory=list)
     turns: list[TurnResult] = field(default_factory=list)
     finished: bool = False
+    model: str = ""            # 판정한 Gemini 모델 (분석용, 옛 파일은 "")
+    prompt_version: str = ""   # prompts.PROMPT_VERSION
 
     @classmethod
     def from_dict(cls, d: dict) -> "Session":

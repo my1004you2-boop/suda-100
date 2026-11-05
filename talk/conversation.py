@@ -5,12 +5,18 @@ from datetime import date, datetime
 
 from talk.llm import BROKEN_MSG, LLM, LLMError
 from talk.models import Correction, DayPlan, Message, Mistake, Session, TurnResult
-from talk.prompts import OPENING_SCHEMA, TURN_SCHEMA, build_system_prompt, opening_instruction
+from talk.prompts import (AREA_FALLBACK, AREAS, OPENING_SCHEMA, PROMPT_VERSION, TURN_SCHEMA, build_system_prompt,
+                          opening_instruction)
 from talk.store import Store, new_session_id
 
 LONG_ABSENCE_DAYS = 3
 VOICE_HINT = "\n[This message came from speech recognition and may contain recognition errors.]"
 SAVE_EVERY_SECONDS = 30
+
+
+def _area(raw) -> str:
+    a = str(raw or "").strip().lower()
+    return a if a in AREAS else AREA_FALLBACK
 
 
 def _parse_turn(data: dict) -> TurnResult:
@@ -27,7 +33,7 @@ def _parse_turn(data: dict) -> TurnResult:
             help_expr=data.get("help_expr") or None,
             user_asked_question=bool(data.get("user_asked_question")),
             user_led=bool(data.get("user_led")),
-            mistakes=[Mistake(m["key"], m["original"], m["native"], m["area"], bool(m.get("voice_sensitive")))
+            mistakes=[Mistake(m["key"], m["original"], m["native"], _area(m["area"]), bool(m.get("voice_sensitive")))
                       for m in data.get("mistakes") or []],
             targets_used_correctly=[str(k) for k in data.get("targets_used_correctly") or []],
         )
@@ -44,7 +50,7 @@ class Conversation:
         self.session = Session(
             id=new_session_id(started), date=started.date().isoformat(), mode=mode,
             topic=plan.topics.get(mode, ""), style=plan.style, started=started.isoformat(timespec="seconds"),
-            seconds=0,
+            seconds=0, model=getattr(llm, "model", ""), prompt_version=PROMPT_VERSION,
         )
         self.discarded = False
         self._lock = threading.Lock()

@@ -134,3 +134,58 @@ def test_ai_translation_stored(tmp_path):
     assert conv.session.messages[-1].translation_ko == "하하, 고르기 어렵네!"
     assert store.load_session(conv.session.id).messages[-1].translation_ko == "하하, 고르기 어렵네!"
     assert "reply_ko" in llm.calls[-1][0]
+
+
+# --- 분석용 기록 정리 (docs/데이터분석과제.md) ---
+
+def test_area_normalized_to_fixed_list(tmp_path):
+    ms = [{"key": "a", "original": "x", "native": "y", "area": " Vocabulary "},
+          {"key": "b", "original": "x", "native": "y", "area": "phrasal_flow"}]
+    conv, _, _ = make_conv(tmp_path, [turn(mistakes=ms)])
+    r = conv.send("hi")
+    assert [m.area for m in r.mistakes] == ["vocabulary", "other"]
+
+
+def test_turn_schema_restricts_area():
+    from talk.prompts import AREAS, TURN_SCHEMA
+    area = TURN_SCHEMA["properties"]["mistakes"]["items"]["properties"]["area"]
+    assert area["enum"] == list(AREAS)
+
+
+def test_prompt_shows_existing_keys_with_native_and_asks_specific_keys():
+    p = build_system_prompt("daily", PLAN, MEMORY, 0)
+    assert 'very + verb = "I really like it"' in p
+    assert "not a broad category" in p
+
+
+def test_prompt_limits_existing_keys_to_most_recent():
+    mistakes = {f"k{i:02d}": {"original": "o", "native": f"n{i}", "area": "grammar", "count": 1,
+                              "first_seen": "2026-11-01", "last_seen": f"2026-11-{i % 28 + 1:02d}"}
+                for i in range(60)}
+    p = build_system_prompt("daily", PLAN, {**MEMORY, "mistakes": mistakes}, 0)
+    from talk.prompts import MAX_KNOWN_KEYS
+    assert sum(f'k{i:02d} = "' in p for i in range(60)) == MAX_KNOWN_KEYS
+
+
+def test_session_records_model_and_prompt_version(tmp_path):
+    from talk.prompts import PROMPT_VERSION
+    conv, store, _ = make_conv(tmp_path, [])
+    saved = store.load_session(conv.session.id)
+    assert saved.model == "fake" and saved.prompt_version == PROMPT_VERSION
+
+
+def test_old_session_file_without_model_still_loads():
+    from talk.models import Session
+    s = Session.from_dict({"id": "x", "date": "2026-11-04", "mode": "daily", "topic": "t", "style": "ai_story",
+                           "started": "2026-11-04T10:00:00", "seconds": 0})
+    assert s.model == "" and s.prompt_version == ""
+
+
+def test_prompt_hides_broad_legacy_keys():
+    from talk.prompts import BROAD_KEYS
+    mistakes = {**MEMORY["mistakes"],
+                "natural_phrasing": {"original": "so so", "native": "It was so-so.", "area": "grammar",
+                                     "last_seen": "2026-11-04"}}
+    p = build_system_prompt("daily", PLAN, {**MEMORY, "mistakes": mistakes}, 0)
+    assert "natural_phrasing" in BROAD_KEYS
+    assert 'natural_phrasing = "' not in p and 'very + verb = "' in p

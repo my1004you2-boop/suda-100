@@ -94,6 +94,8 @@ class GeminiLLM:
 class FakeLLM:
     """테스트용. 정해 둔 응답을 차례로 돌려준다."""
 
+    model = "fake"
+
     def __init__(self, responses: list):
         self.responses = list(responses)
         self.calls: list[tuple] = []

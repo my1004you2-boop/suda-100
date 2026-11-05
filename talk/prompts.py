@@ -6,6 +6,20 @@ _STR = {"type": "STRING"}
 _NSTR = {"type": "STRING", "nullable": True}
 _BOOL = {"type": "BOOLEAN"}
 
+# 프롬프트나 응답 모양을 바꾸면 올린다. 세션마다 기록해서 분석 때 판정 기준이 바뀐 시점을 알 수 있게 한다.
+PROMPT_VERSION = "2026-11-05"
+
+# 실수 종류는 이 중 하나로만 기록한다 (자유 문자열이면 집계가 안 된다)
+AREAS = ("grammar", "vocabulary", "expression", "spelling")
+AREA_FALLBACK = "other"
+
+# 프롬프트에 보여 줄 기존 실수 key 개수 (최근에 나온 순)
+MAX_KNOWN_KEYS = 40
+
+# 서로 다른 실수를 한데 묶어 버리는 넓은 이름. 쓰지 말라고 하고, 예전 기록에 있어도 목록에 보여 주지 않는다.
+BROAD_KEYS = ("natural_phrasing", "natural_expression", "word_choice", "vocab_choice", "grammar_error",
+              "sentence_connection", "sentence_structure")
+
 TURN_SCHEMA = {
     "type": "OBJECT",
     "properties": {
@@ -24,7 +38,8 @@ TURN_SCHEMA = {
             "type": "ARRAY",
             "items": {
                 "type": "OBJECT",
-                "properties": {"key": _STR, "original": _STR, "native": _STR, "area": _STR,
+                "properties": {"key": _STR, "original": _STR, "native": _STR,
+                               "area": {"type": "STRING", "enum": list(AREAS)},
                                "voice_sensitive": _BOOL},
                 "required": ["key", "original", "native", "area"],
             },
@@ -85,6 +100,12 @@ def level_guide(level: float) -> str:
             "If the user seems lost, simplify for a turn.")
 
 
+def _known_keys(mistakes: dict) -> str:
+    specific = [k for k in mistakes if k not in BROAD_KEYS]
+    recent = sorted(specific, key=lambda k: mistakes[k].get("last_seen", ""), reverse=True)[:MAX_KNOWN_KEYS]
+    return "\n".join(f'  {k} = "{mistakes[k].get("native", "")}"' for k in recent) or "  (none)"
+
+
 def build_system_prompt(mode: str, plan: DayPlan, memory: dict, ai_question_streak: int,
                         level: float = 1.0) -> str:
     topic = plan.topics.get(mode, "")
@@ -128,8 +149,14 @@ def build_system_prompt(mode: str, plan: DayPlan, memory: dict, ai_question_stre
         "in reply. For such turns, mistakes = [] and user_asked_question = false.\n"
         "- user_asked_question: true if the user asked you a question in English.\n"
         "- user_led: true if the user brought up a new subject or shared a story without being asked.\n"
-        "- mistakes: one item per real mistake. key = short English label grouping the same mistake. Reuse an "
-        "existing key when it is the same mistake. Existing keys: " + (", ".join(targets) or "(none)") + ". "
+        "- mistakes: one item per real mistake; if one message has two different mistakes, return two items, "
+        "each with original = only the wrong part. key =short snake_case label for this SPECIFIC mistake, named "
+        "after the expression or rule itself (e.g. get_much_sleep, do_in_why_questions, send_an_email), not a "
+        "broad category (never " + ", ".join(BROAD_KEYS) + "). Reuse an existing key "
+        "only when it is the same specific mistake as its example. Existing keys (key = native example):\n"
+        + _known_keys(targets) + "\n"
+        "area = grammar (tense, articles, word order, plurals, question form), vocabulary (wrong or unnatural "
+        "single word), expression (unnatural phrasing or collocation as a whole), spelling (typos, misspellings). "
         "voice_sensitive = true only when the message came from speech recognition and the error is about "
         "articles, word endings or similar-sounding words.\n"
         "- targets_used_correctly: hidden-practice keys the user just used correctly.")
