@@ -6,9 +6,14 @@
 만드는 파일 (analysis/out/, git 제외):
     sessions.csv   대화 1회 = 1행
     messages.csv   내 메시지 1개 = 1행
+    mistakes.csv   AI가 기록한 실수 1건 = 1행 (+ 사람이 붙인 mistake_id, 품질 표시, 재발 여부)
+    practice.csv   숨은 연습 대상 key × 날짜
     warnings.txt   데이터 품질 경고
 
-여러 번 돌려도 결과가 같다 (항상 처음부터 다시 만든다).
+사람이 고치는 파일 (git 제외):
+    analysis/mistake_map.csv   (원문, 교정문) → mistake_id. 처음 보는 실수는 ID 빈칸으로 끝에 덧붙는다.
+
+여러 번 돌려도 결과가 같다 (항상 처음부터 다시 만든다. 매핑표는 덧붙이기만 한다).
 설계: docs/데이터분석과제.md 3절
 """
 
@@ -33,6 +38,13 @@ SESSION_COLS = ["session_id", "date", "day_n", "work_day", "started", "mode", "s
 MESSAGE_COLS = ["session_id", "date", "day_n", "work_day", "mode", "msg_idx", "ts", "text", "via_voice",
                 "n_words", "has_korean", "asked_help_ko", "corrected", "user_asked_question", "user_led",
                 "n_mistakes", "prompt_version"]
+MISTAKE_COLS = ["session_id", "date", "day_n", "work_day", "mode", "style", "msg_idx", "user_text", "key", "area",
+                "original", "native", "voice_sensitive", "prompt_version", "not_in_text", "dup_in_msg", "valid",
+                "mistake_id", "occurrence_n", "repeat"]
+PRACTICE_COLS = ["date", "key", "n_sessions", "used_correctly", "mistaken_again"]
+MAP_COLS = ["mistake_id", "original", "native", "first_date"]
+DEFAULT_MAP = ROOT / "analysis" / "mistake_map.csv"
+_PUNCT = re.compile(r"[^\w\s']")
 
 
 def count_words(text: str) -> int:
@@ -52,6 +64,37 @@ def day_n(d: str) -> int:
 def work_day(d: str) -> int | None:
     """근무 일차 1~10. 주말이나 기간 밖이면 None."""
     return WORK_DAYS.index(d) + 1 if d in WORK_DAYS else None
+
+
+def norm(text: str) -> str:
+    """비교용: 소문자, 문장부호 제거, 띄어쓰기 하나로."""
+    return " ".join(_PUNCT.sub(" ", text.lower()).split())
+
+
+def in_text(original: str, text: str) -> bool:
+    """AI가 적은 '틀린 말'이 내 메시지에 실제로 있는지. 단어 80% 이상이 메시지에 있으면 있다고 본다."""
+    o, t = norm(original), norm(text)
+    if not o or o in t:
+        return True
+    words = o.split()
+    have = set(t.split())
+    return sum(w in have for w in words) / len(words) >= 0.8
+
+
+def _map_key(original: str, native: str) -> tuple[str, str]:
+    return norm(original), norm(native)
+
+
+def read_map(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        return [{c: r.get(c, "") or "" for c in MAP_COLS} for r in csv.DictReader(f)]
+
+
+def write_map(path: Path, rows: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_csv(path, MAP_COLS, rows)
 
 
 def _blank(v):
@@ -106,6 +149,76 @@ def build_rows(sessions: list[dict]) -> tuple[list[dict], list[dict], list[str]]
     return session_rows, message_rows, warnings
 
 
+def build_mistakes(sessions: list[dict], map_rows: list[dict]) -> tuple[list[dict], list[dict], list[str]]:
+    """실수 1건 = 1행. 매핑표에 없는 실수는 매핑표 끝에 덧붙인다 (ID 빈칸)."""
+    index = {_map_key(r["original"], r["native"]): r for r in map_rows}
+    rows = []
+    for s in sessions:
+        user_msgs = [m for m in s.get("messages", []) if m["role"] == "user"]
+        for i, t in enumerate(s.get("turns", [])):
+            text = user_msgs[i]["text"] if i < len(user_msgs) else ""
+            seen = set()
+            for m in t.get("mistakes") or []:
+                k = _map_key(m["original"], m["native"])
+                dup = norm(m["original"]) in seen
+                seen.add(norm(m["original"]))
+                if k not in index:
+                    index[k] = {"mistake_id": "", "original": m["original"], "native": m["native"],
+                                "first_date": s["date"]}
+                    map_rows.append(index[k])
+                not_in = not in_text(m["original"], text)
+                rows.append({
+                    "session_id": s["id"], "date": s["date"], "day_n": day_n(s["date"]),
+                    "work_day": _blank(work_day(s["date"])), "mode": s.get("mode", ""), "style": s.get("style", ""),
+                    "msg_idx": i + 1, "user_text": text, "key": m.get("key", ""), "area": m.get("area", ""),
+                    "original": m["original"], "native": m["native"],
+                    "voice_sensitive": bool(m.get("voice_sensitive")),
+                    "prompt_version": s.get("prompt_version", ""), "not_in_text": not_in, "dup_in_msg": dup,
+                    "valid": not (not_in or dup), "mistake_id": index[k]["mistake_id"],
+                })
+
+    # 재발: 유효한 기록만, mistake_id 기준으로 센다
+    count: dict[str, int] = {}
+    dates: dict[str, set] = {}
+    for r in rows:
+        mid = r["mistake_id"]
+        if not (r["valid"] and mid):
+            r["occurrence_n"] = r["repeat"] = ""
+            continue
+        count[mid] = count.get(mid, 0) + 1
+        earlier = dates.setdefault(mid, set())
+        r["occurrence_n"] = count[mid]
+        r["repeat"] = any(d < r["date"] for d in earlier)
+        earlier.add(r["date"])
+
+    warnings = []
+    for r in rows:
+        if r["not_in_text"]:
+            warnings.append(f"{r['session_id']} #{r['msg_idx']}: 말하지 않은 실수 기록 \"{r['original']}\" "
+                            f"(내 메시지: \"{r['user_text']}\")")
+        if r["dup_in_msg"]:
+            warnings.append(f"{r['session_id']} #{r['msg_idx']}: 한 메시지 안 중복 실수 \"{r['original']}\"")
+    unmapped = sum(1 for r in map_rows if not r["mistake_id"])
+    if unmapped:
+        warnings.append(f"ID 없는 실수 {unmapped}건: analysis/mistake_map.csv의 mistake_id 빈칸을 채워 주세요")
+    return rows, map_rows, warnings
+
+
+def build_practice(data_dir: Path, sessions: list[dict]) -> list[dict]:
+    """숨은 연습 대상(plans/{date}.json targets)을 그날 맞게 썼는지 / 또 틀렸는지. AI key 기준."""
+    rows = []
+    for p in sorted((data_dir / "plans").glob("*.json")) if (data_dir / "plans").exists() else []:
+        plan = json.loads(p.read_text(encoding="utf-8"))
+        d = plan.get("date", p.stem)
+        day = [s for s in sessions if s["date"] == d]
+        used = {k for s in day for t in s.get("turns", []) for k in t.get("targets_used_correctly") or []}
+        wrong = {m.get("key") for s in day for t in s.get("turns", []) for m in t.get("mistakes") or []}
+        for k in plan.get("targets", []):
+            rows.append({"date": d, "key": k, "n_sessions": len(day), "used_correctly": k in used,
+                         "mistaken_again": k in wrong})
+    return rows
+
+
 def _write_csv(path: Path, cols: list[str], rows: list[dict]) -> None:
     # utf-8-sig: 엑셀에서 열어도 한글이 깨지지 않게
     with open(path, "w", encoding="utf-8-sig", newline="") as f:
@@ -114,11 +227,17 @@ def _write_csv(path: Path, cols: list[str], rows: list[dict]) -> None:
         w.writerows(rows)
 
 
-def run(data_dir: Path, out_dir: Path) -> list[str]:
+def run(data_dir: Path, out_dir: Path, map_path: Path = DEFAULT_MAP) -> list[str]:
     out_dir.mkdir(parents=True, exist_ok=True)
-    session_rows, message_rows, warnings = build_rows(load_sessions(data_dir))
+    sessions = load_sessions(data_dir)
+    session_rows, message_rows, warnings = build_rows(sessions)
+    mistake_rows, map_rows, mistake_warnings = build_mistakes(sessions, read_map(map_path))
+    warnings += mistake_warnings
     _write_csv(out_dir / "sessions.csv", SESSION_COLS, session_rows)
     _write_csv(out_dir / "messages.csv", MESSAGE_COLS, message_rows)
+    _write_csv(out_dir / "mistakes.csv", MISTAKE_COLS, mistake_rows)
+    _write_csv(out_dir / "practice.csv", PRACTICE_COLS, build_practice(data_dir, sessions))
+    write_map(map_path, map_rows)
     (out_dir / "warnings.txt").write_text("\n".join(warnings) + ("\n" if warnings else ""), encoding="utf-8")
     return warnings
 

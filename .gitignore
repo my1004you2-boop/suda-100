@@ -14,3 +14,4 @@ docs/superpowers/
 
 # 분석 결과 (대화 원문이 들어 있음, 공개하지 않음)
 analysis/out/
+analysis/mistake_map.csv
