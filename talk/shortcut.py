@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 NAME = "수다백단"
+ICON = ROOT / "assets" / "suda100.ico"
 
 
 def pythonw(exe: str = sys.executable) -> str:
@@ -22,15 +23,17 @@ def _q(s) -> str:
     return "'" + str(s).replace("'", "''") + "'"
 
 
-def ps_script(target: str, script: Path, workdir: Path, name: str = NAME) -> str:
+def ps_script(target: str, script: Path, workdir: Path, name: str = NAME, icon: Path | None = None) -> str:
     lnk = f"(Join-Path ([Environment]::GetFolderPath('Desktop')) {_q(name + '.lnk')})"
     return (f"$p={lnk};$s=(New-Object -ComObject WScript.Shell).CreateShortcut($p);"
             f"$s.TargetPath={_q(target)};$s.Arguments={_q(chr(34) + str(script) + chr(34))};"
-            f"$s.WorkingDirectory={_q(workdir)};$s.Description={_q(name)};$s.Save();Write-Output $p")
+            f"$s.WorkingDirectory={_q(workdir)};$s.Description={_q(name)};"
+            + (f"$s.IconLocation={_q(str(icon) + ',0')};" if icon else "")
+            + "$s.Save();Write-Output $p")
 
 
 def main() -> None:
-    cmd = ps_script(pythonw(), ROOT / "main.pyw", ROOT)
+    cmd = ps_script(pythonw(), ROOT / "main.pyw", ROOT, icon=ICON if ICON.exists() else None)
     r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", cmd],
                        capture_output=True, text=True, errors="replace")  # PowerShell 5.1은 시스템 코드페이지로 출력
     if r.returncode != 0:
