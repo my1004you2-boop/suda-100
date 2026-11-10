@@ -1,5 +1,8 @@
 """대화 화면: 말풍선, 접을 수 있는 교정·도움말 카드, 입력창과 마이크, 오늘 목표 막대."""
 
+import math
+import tkinter as tk
+import tkinter.font as tkfont
 import traceback
 
 import customtkinter as ctk
@@ -7,7 +10,7 @@ import customtkinter as ctk
 from talk.llm import LLMError
 from talk.models import Message
 from talk.reports import goal_progress
-from talk.ui.theme import C, MODE_LABELS, button, font, label
+from talk.ui.theme import C, MODE_LABELS, UI_FONT, button, font, label
 
 BUBBLE_WRAP = 520
 ERROR_MS = 5000
@@ -17,6 +20,49 @@ CARD_STYLE = {
     "help": {"bg": "help_bg", "fg": "help_fg", "em": "help_em", "chip": "help_chip", "chip_text": "💡 도움말 보기 ▼"},
     "trans": {"bg": "trans_bg", "fg": "fg", "em": "muted", "chip": "trans_chip", "chip_text": "🌏 한국어 번역 보기 ▼"},
 }
+
+
+COPY_KEYS = {"c", "C", "a", "A", "Insert"}
+
+
+class SelectableText(tk.Text):
+    """라벨처럼 보이지만 마우스로 드래그해 선택하고 Ctrl+C로 복사할 수 있는 읽기 전용 글자."""
+
+    def __init__(self, master, text: str, size: int = 13, weight: str = "normal", color: str | None = None,
+                 bg: str | None = None, wrap_px: int = BUBBLE_WRAP):
+        scale = ctk.ScalingTracker.get_widget_scaling(master)  # CTkLabel과 같은 크기로 보이게
+        self.tk_font = tkfont.Font(family=UI_FONT, size=-round(size * scale), weight=weight)
+        lines = text.split("\n") or [""]
+        natural = max(self.tk_font.measure(line) for line in lines)
+        chars = math.ceil(min(natural, wrap_px * scale) / max(1, self.tk_font.measure("0"))) + 1
+        super().__init__(master, font=self.tk_font, fg=color or C["fg"], bg=bg or C["bg"], width=max(1, chars),
+                         height=len(lines), wrap="word", relief="flat", borderwidth=0, highlightthickness=0,
+                         padx=0, pady=0, insertwidth=0, cursor="xterm", exportselection=True,
+                         selectbackground=C["accent"], selectforeground="#ffffff", inactiveselectbackground=C["accent"])
+        self.insert("1.0", text)
+        self.bind("<Key>", self._on_key)
+        self.bind("<Configure>", lambda e: self.fit_height())
+
+    @staticmethod
+    def _on_key(event):
+        """복사(Ctrl+C, Ctrl+Insert)와 전체 선택(Ctrl+A)만 허용하고 글자 수정은 막는다."""
+        if event.state & 0x0004 and event.keysym in COPY_KEYS:
+            return None
+        return "break"
+
+    def display_lines(self) -> int:
+        n = self.count("1.0", "end-1c", "update", "displaylines")
+        n = n[0] if isinstance(n, tuple) else n
+        return (n or 0) + 1
+
+    def fit_height(self) -> None:
+        """실제로 줄바꿈된 줄 수만큼 높이를 맞춘다 (안에서 따로 스크롤되지 않게)."""
+        try:
+            lines = self.display_lines()
+            if lines != int(self.cget("height")):
+                self.configure(height=lines)
+        except tk.TclError:
+            pass
 
 
 class FoldCard(ctk.CTkFrame):
@@ -35,8 +81,8 @@ class FoldCard(ctk.CTkFrame):
         fold.pack(side="right")
         fold.bind("<Button-1>", lambda e: self.toggle())
         for text, em in lines:
-            label(self.body, text, 12, "bold" if em else "normal", color=C[st["em"]] if em else C[st["fg"]],
-                  wraplength=BUBBLE_WRAP - 40, justify="left").pack(anchor="w", padx=12, pady=(0, 2))
+            SelectableText(self.body, text, 12, "bold" if em else "normal", color=C[st["em"]] if em else C[st["fg"]],
+                           bg=C[st["bg"]], wrap_px=BUBBLE_WRAP - 40).pack(anchor="w", padx=12, pady=(0, 2))
         ctk.CTkFrame(self.body, fg_color="transparent", height=6).pack()
         self.chip = ctk.CTkButton(self, text=st["chip_text"], command=self.toggle, height=24, corner_radius=12,
                                   font=font(11), fg_color=C[st["chip"]], hover_color=C[st["bg"]],
@@ -77,7 +123,7 @@ def render_message(parent, msg: Message, on_speak) -> tuple[ctk.CTkFrame, list[F
     bubble = ctk.CTkFrame(row, fg_color=C["bubble_me"] if mine else C["bubble_ai"], corner_radius=10)
     bubble.pack(anchor="e" if mine else "w")
     text = ("🎤 " if msg.via_voice else "") + msg.text
-    label(bubble, text, 13, wraplength=BUBBLE_WRAP, justify="left").pack(side="left", padx=11, pady=8)
+    SelectableText(bubble, text, 13, bg=C["bubble_me"] if mine else C["bubble_ai"]).pack(side="left", padx=11, pady=8)
     if not mine and on_speak:
         ctk.CTkButton(bubble, text="🔊", width=28, height=24, fg_color="transparent", hover_color=C["side_hover"],
                       text_color=C["accent"], font=font(12), command=lambda: on_speak(msg.text)).pack(

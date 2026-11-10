@@ -109,3 +109,42 @@ def test_ai_translation_card_starts_folded(make_app):
     assert "한국어" in card.chip.cget("text") and "하하, 고르기 어렵네!" in card.text
     card.toggle()
     assert card.expanded
+
+
+def _texts(widget):
+    from talk.ui.chat_view import SelectableText
+
+    found = [widget] if isinstance(widget, SelectableText) else []
+    for child in widget.winfo_children():
+        found += _texts(child)
+    return found
+
+
+def test_bubble_and_card_text_is_selectable_and_read_only(make_app):
+    app = make_app([OPENING, turn(correction=CORR)])
+    view = start(app)
+    say(app, view, "i cant choose one of them")
+    app.update()
+    texts = {t.get("1.0", "end-1c"): t for t in _texts(view.scroll)}
+    assert OPENING["reply"] in texts and "i cant choose one of them" in texts
+    assert f"\"{CORR['native']}\"" in texts                     # 교정 카드 글자도 선택 가능
+    t = texts[OPENING["reply"]]
+    t.tag_add("sel", "1.0", "1.4")
+    assert t.get("sel.first", "sel.last") == "Hey!"            # 드래그 선택과 같은 상태
+
+    class Key:
+        def __init__(self, keysym, state=0):
+            self.keysym, self.state = keysym, state
+
+    assert t._on_key(Key("x")) == "break"                       # 글자 입력은 막고
+    assert t._on_key(Key("c", 0x0004)) is None                  # Ctrl+C 복사는 허용
+
+
+def test_long_text_wraps_without_inner_scroll(make_app):
+    long = "This is a fairly long reply that should wrap onto several lines in the bubble. " * 4
+    app = make_app([{"reply": long.strip()}])
+    view = start(app)
+    app.update()
+    t = [x for x in _texts(view.scroll) if x.get("1.0", "end-1c") == long.strip()][0]
+    t.fit_height()
+    assert int(t.cget("height")) == t.display_lines() > 1

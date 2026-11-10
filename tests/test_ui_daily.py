@@ -11,6 +11,8 @@ def all_text(widget) -> str:
             out.append(str(w.cget("text")))
         except Exception:
             pass
+        if hasattr(w, "get") and w.winfo_class() == "Text":  # 선택 가능한 글자 (SelectableText)
+            out.append(w.get("1.0", "end-1c"))
         out.append(all_text(w))
     return "\n".join(out)
 
