@@ -111,6 +111,14 @@
 | `n_mistakes` | 유효한 실수 수 | `valid` 참 | A |
 | `n_repeat`, `repeat_rate` | 재발한 실수 수, 비율 | `repeat` 참인 수 ÷ ID 있는 유효한 실수 | A1 |
 
+## 중간 점검 표 (`python -m analysis.interim`)
+
+| 파일 | 1행 | 내용 |
+|---|---|---|
+| `by_mode.csv`, `by_style.csv` | 모드 / 대화 스타일 1개 | daily_metrics와 같은 지표. **11/5부터만** (AI 판정 기준선과 같은 조건). 3분 미만 대화는 `n_sessions`에서 빼고 메시지는 남김. `dates` = 그 그룹이 나온 날짜 |
+| `recurrence.csv` | 날짜 1개 | `n_ids` 그날까지 나온 실수 ID 수, `n_multi_day` 그중 2일 이상 나온 ID 수, `cum_recurrence` 누적 재발률, `daily_repeat`·`daily_n` 그날 재발 비율과 표본 수, `ci_low`~`ci_high` 그날 재발 비율의 95% 구간 (Wilson) |
+| `figures/trend.png` | | 핵심 지표 6개 추이 (숫자만 있어 git에 올림) |
+
 ## 품질 경고 (warnings.txt)
 
 | 경고 | 조건 |

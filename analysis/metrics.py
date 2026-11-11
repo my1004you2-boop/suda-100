@@ -38,31 +38,36 @@ def _rate(rows, col) -> float:
     return round(sum(_t(r[col]) for r in rows) / len(rows), 3) if rows else ""
 
 
+def summarize(ss: list[dict], ms: list[dict], mistakes: list[dict]) -> dict:
+    """대화·메시지·실수 묶음 하나의 지표. 날짜별, 모드별, 스타일별 집계에 같이 쓴다."""
+    mk = [r for r in mistakes if _t(r["valid"])]
+    words = [int(r["n_words"]) for r in ms]
+    tokens = [w.lower() for r in ms for w in _WORD.findall(r["text"])]
+    n_repeat = sum(_t(r["repeat"]) for r in mk)
+    mapped = [r for r in mk if r["mistake_id"]]
+    return {
+        "n_sessions": len(ss), "minutes": round(sum(float(r["minutes"]) for r in ss), 1),
+        "n_msgs": len(ms),
+        "avg_words": round(sum(words) / len(words), 1) if words else "",
+        "median_words": median(words) if words else "",
+        "ttr150": ttr(tokens),
+        "korean_rate": _rate(ms, "has_korean"), "help_rate": _rate(ms, "asked_help_ko"),
+        "corrected_rate": _rate(ms, "corrected"),
+        "mistakes_per_msg": round(len(mk) / len(ms), 2) if ms else "",
+        "lead_rate": round(sum(_t(r["user_led"]) or _t(r["user_asked_question"]) for r in ms) / len(ms), 3)
+        if ms else "",
+        "question_rate": _rate(ms, "user_asked_question"), "voice_rate": _rate(ms, "via_voice"),
+        "n_mistakes": len(mk), "n_repeat": n_repeat,
+        "repeat_rate": round(n_repeat / len(mapped), 3) if mapped else "",
+    }
+
+
 def daily_metrics(sessions: list[dict], messages: list[dict], mistakes: list[dict]) -> list[dict]:
     out = []
     for d in sorted({r["date"] for r in sessions}):
-        ss = [r for r in sessions if r["date"] == d]
-        ms = [r for r in messages if r["date"] == d]
-        mk = [r for r in mistakes if r["date"] == d and _t(r["valid"])]
-        words = [int(r["n_words"]) for r in ms]
-        tokens = [w.lower() for r in ms for w in _WORD.findall(r["text"])]
-        n_repeat = sum(_t(r["repeat"]) for r in mk)
-        mapped = [r for r in mk if r["mistake_id"]]
-        out.append({
-            "date": d, "n_sessions": len(ss), "minutes": round(sum(float(r["minutes"]) for r in ss), 1),
-            "n_msgs": len(ms),
-            "avg_words": round(sum(words) / len(words), 1) if words else "",
-            "median_words": median(words) if words else "",
-            "ttr150": ttr(tokens),
-            "korean_rate": _rate(ms, "has_korean"), "help_rate": _rate(ms, "asked_help_ko"),
-            "corrected_rate": _rate(ms, "corrected"),
-            "mistakes_per_msg": round(len(mk) / len(ms), 2) if ms else "",
-            "lead_rate": round(sum(_t(r["user_led"]) or _t(r["user_asked_question"]) for r in ms) / len(ms), 3)
-            if ms else "",
-            "question_rate": _rate(ms, "user_asked_question"), "voice_rate": _rate(ms, "via_voice"),
-            "n_mistakes": len(mk), "n_repeat": n_repeat,
-            "repeat_rate": round(n_repeat / len(mapped), 3) if mapped else "",
-        })
+        row = summarize([r for r in sessions if r["date"] == d], [r for r in messages if r["date"] == d],
+                        [r for r in mistakes if r["date"] == d])
+        out.append({"date": d, **row})
     return out
 
 
