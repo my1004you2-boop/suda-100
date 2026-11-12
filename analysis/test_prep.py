@@ -156,3 +156,18 @@ def test_practice_csv(tmp_path):
     assert rows["t1"]["used_correctly"] == "True" and rows["t1"]["mistaken_again"] == "False"
     assert rows["t2"]["used_correctly"] == "False" and rows["t2"]["mistaken_again"] == "True"
     assert rows["t3"]["n_sessions"] == "1" and rows["t3"]["used_correctly"] == "False"
+
+
+def test_no_change_mistake_is_invalid_and_not_mapped(tmp_path):
+    from analysis.prep import read_map
+    s = _session("20261112-100000", "2026-11-12", ["there are no such lyrics", "i drinked tea"],
+                 [_turn_m(_m("no such lyrics", "No such lyrics.")),                 # 틀린 말 = 맞는 말
+                  _turn_m(_m("drinked", "drank"))])
+    data, out = _write(tmp_path, s)
+    map_path = tmp_path / "mistake_map.csv"
+    warnings = run(data, out, map_path)
+    ms = _read(out / "mistakes.csv")
+    assert [m["no_change"] for m in ms] == ["True", "False"]
+    assert [m["valid"] for m in ms] == ["False", "True"]
+    assert [r["original"] for r in read_map(map_path)] == ["drinked"]          # ID를 붙일 필요가 없다
+    assert any("고칠 것 없는 실수 기록" in w for w in warnings)

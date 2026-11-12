@@ -39,7 +39,7 @@ MESSAGE_COLS = ["session_id", "date", "day_n", "work_day", "mode", "msg_idx", "t
                 "n_words", "has_korean", "asked_help_ko", "corrected", "user_asked_question", "user_led",
                 "n_mistakes", "prompt_version"]
 MISTAKE_COLS = ["session_id", "date", "day_n", "work_day", "mode", "style", "msg_idx", "user_text", "key", "area",
-                "original", "native", "voice_sensitive", "prompt_version", "not_in_text", "dup_in_msg", "valid",
+                "original", "native", "voice_sensitive", "prompt_version", "not_in_text", "dup_in_msg", "no_change", "valid",
                 "mistake_id", "occurrence_n", "repeat"]
 PRACTICE_COLS = ["date", "key", "n_sessions", "used_correctly", "mistaken_again"]
 MAP_COLS = ["mistake_id", "original", "native", "first_date"]
@@ -162,7 +162,8 @@ def build_mistakes(sessions: list[dict], map_rows: list[dict]) -> tuple[list[dic
                 k = _map_key(m["original"], m["native"])
                 dup = norm(m["original"]) in seen
                 seen.add(norm(m["original"]))
-                if k not in index:
+                same = norm(m["original"]) == norm(m["native"])  # 고칠 것 없는 기록: ID를 붙이지 않는다
+                if k not in index and not same:
                     index[k] = {"mistake_id": "", "original": m["original"], "native": m["native"],
                                 "first_date": s["date"]}
                     map_rows.append(index[k])
@@ -174,7 +175,8 @@ def build_mistakes(sessions: list[dict], map_rows: list[dict]) -> tuple[list[dic
                     "original": m["original"], "native": m["native"],
                     "voice_sensitive": bool(m.get("voice_sensitive")),
                     "prompt_version": s.get("prompt_version", ""), "not_in_text": not_in, "dup_in_msg": dup,
-                    "valid": not (not_in or dup), "mistake_id": index[k]["mistake_id"],
+                    "no_change": same, "valid": not (not_in or dup or same),
+                    "mistake_id": index[k]["mistake_id"] if k in index else "",
                 })
 
     # 재발: 유효한 기록만, mistake_id 기준으로 센다
@@ -198,6 +200,9 @@ def build_mistakes(sessions: list[dict], map_rows: list[dict]) -> tuple[list[dic
                             f"(내 메시지: \"{r['user_text']}\")")
         if r["dup_in_msg"]:
             warnings.append(f"{r['session_id']} #{r['msg_idx']}: 한 메시지 안 중복 실수 \"{r['original']}\"")
+        if r["no_change"]:
+            warnings.append(f"{r['session_id']} #{r['msg_idx']}: 고칠 것 없는 실수 기록 \"{r['original']}\" "
+                            f"→ \"{r['native']}\"")
     unmapped = sum(1 for r in map_rows if not r["mistake_id"])
     if unmapped:
         warnings.append(f"ID 없는 실수 {unmapped}건: analysis/mistake_map.csv의 mistake_id 빈칸을 채워 주세요")

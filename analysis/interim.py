@@ -17,6 +17,7 @@ from analysis.metrics import COLS, OUT, ROOT, TTR_WORDS, _WORD, _read, _t, summa
 
 FIG = ROOT / "analysis" / "figures"
 AI_SINCE = "2026-11-05"  # AI 판정 지표의 기준선 날짜 (baseline.md)
+INTERIM_END = "2026-11-11"  # 중간 점검(5일차) 그래프는 전반부까지만
 MIN_MINUTES = 3.0  # 3분 미만 대화는 대화 단위 집계(대화 수, 모드 배분)에서 뺀다
 STYLE_KO = {"goal_roleplay": "목표 역할극", "ai_story": "AI 이야기", "ai_disagree": "AI 반대",
             "user_first": "내가 이끌기", "ai_secret": "AI 비밀", "role_swap": "역할 바꾸기"}
@@ -188,7 +189,8 @@ def main() -> None:
     styles = {}
     for s in sessions:
         styles.setdefault(s["date"], s["style"])
-    plot_trend(daily, styles, FIG / "trend.png", ci={r["date"]: (r["ci_low"], r["ci_high"]) for r in rec})
+    plot_trend([r for r in daily if r["date"] <= INTERIM_END], styles, FIG / "trend.png",  # 중간 점검 시점 고정
+               ci={r["date"]: (r["ci_low"], r["ci_high"]) for r in rec})
     print(f"\n그래프: {FIG / 'trend.png'}")
 
 

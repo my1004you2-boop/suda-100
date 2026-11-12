@@ -63,7 +63,8 @@
 | `voice_sensitive` | 참/거짓 | 음성 인식 탓일 수 있는 실수 | AI 판정 |
 | `not_in_text` | 참/거짓 | **말하지 않은 실수 기록**: `original`의 단어 80% 이상이 `user_text`에 없음 | 소문자·문장부호 제거 후 비교 |
 | `dup_in_msg` | 참/거짓 | **한 메시지 안 중복**: 같은 `original`이 이 메시지에서 이미 기록됨 | |
-| `valid` | 참/거짓 | 분석에 쓰는 기록인지 | `not_in_text`, `dup_in_msg`가 모두 거짓 |
+| `no_change` | 참/거짓 | **고칠 것 없는 기록**: `original`과 `native`가 같음 (대소문자·문장부호 무시). 매핑표에 넣지 않음 | 6일차 추가 |
+| `valid` | 참/거짓 | 분석에 쓰는 기록인지 | `not_in_text`, `dup_in_msg`, `no_change`가 모두 거짓 |
 | `mistake_id` | 문자 | **사람이 붙인 실수 ID**. 같은 학습 포인트면 같은 ID | `mistake_map.csv`에서 (`original`, `native`)로 찾음. 없으면 빈칸 |
 | `occurrence_n` | 정수 | 이 ID가 몇 번째로 나왔는지 (1 = 처음) | 유효하고 ID가 있는 기록만, 날짜·대화·메시지 순 |
 | `repeat` | 참/거짓 | **재발**: 같은 ID가 이전 날짜에 나온 적 있는지 | 같은 날 여러 번은 재발로 세지 않음 |
@@ -119,6 +120,16 @@
 | `recurrence.csv` | 날짜 1개 | `n_ids` 그날까지 나온 실수 ID 수, `n_multi_day` 그중 2일 이상 나온 ID 수, `cum_recurrence` 누적 재발률, `daily_repeat`·`daily_n` 그날 재발 비율과 표본 수, `ci_low`~`ci_high` 그날 재발 비율의 95% 구간 (Wilson) |
 | `figures/trend.png` | | 핵심 지표 6개 추이 (숫자만 있어 git에 올림) |
 
+## 전반부 실수 ID 목록 (`analysis/first_half_ids.csv`, `python -m analysis.balance`)
+
+A 분석(후반부 재등장 비율)의 분모. 11/12에 **한 번 고정**하고 다시 실행해도 덮어쓰지 않는다 (`--force`로만 다시 만듦). 후반부에 매핑을 고쳐도 분모가 흔들리지 않게 하려는 것. ID·날짜·횟수만 있어 git에 올린다.
+
+| 컬럼 | 뜻 |
+|---|---|
+| `mistake_id` | 11/4~11/11 유효한 실수의 ID |
+| `n_days`, `n_records` | 전반부에 나온 날 수, 기록 수 |
+| `first_date`, `last_date` | 전반부에서 처음·마지막으로 나온 날 |
+
 ## 품질 경고 (warnings.txt)
 
 | 경고 | 조건 |
@@ -128,4 +139,5 @@
 | 끝나지 않은 대화 | `finished` 거짓 |
 | 말하지 않은 실수 기록 | `not_in_text` 참 |
 | 한 메시지 안 중복 실수 | `dup_in_msg` 참 |
+| 고칠 것 없는 실수 기록 | `no_change` 참 |
 | ID 없는 실수 N건 | `mistake_map.csv`에 빈칸 있음 |
