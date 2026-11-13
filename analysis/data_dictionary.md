@@ -130,6 +130,18 @@ A 분석(후반부 재등장 비율)의 분모. 11/12에 **한 번 고정**하�
 | `n_days`, `n_records` | 전반부에 나온 날 수, 기록 수 |
 | `first_date`, `last_date` | 전반부에서 처음·마지막으로 나온 날 |
 
+## A 분석 표 (`python -m analysis.mistake_repeat`, 7일차)
+
+| 파일 | 1행 | 내용 |
+|---|---|---|
+| `reappearance.csv` | 묶음 1개 (`all` / `multi_day` / `single_day`) | 전반부 고정 ID(`n` = 분모) 중 11/12 이후 유효 기록이 있는 ID 수 `k`, 비율 `rate`, 95% 구간 `ci_low`~`ci_high` (Wilson), 다시 나온 `ids`. `multi_day` = 전반부에 2일 이상 나온 ID |
+| `repeat_by_type.csv` | 영역 또는 문법 묶음 1개 | `level` = `area`(문법·어휘·표현·철자) / `grammar`(질문 구조·시제·동사 형태·관사·전치사·연결어·기타). `n_ids`, 2일 이상 나온 `n_multi_day`와 `multi_share`, 기록 수 `n_records` |
+| `survival.csv` | 실수 ID 1개 | `time` = 처음 나온 근무일부터 다음에 다시 나온 근무일까지 근무일 수 (`event`=1), 다시 안 나왔으면 마지막 근무일까지 (`event`=0, 관측 중단). 마지막 날 처음 나온 ID는 뺌. `area`, `grammar_group` |
+| `figures/a_reappearance.png`, `a_by_type.png`, `a_survival.png` | | 재등장 비율, 유형별 2일 이상 비율, Kaplan–Meier 곡선 (숫자만 있어 git에 올림) |
+
+- **영역**: AI가 붙인 `area`를 정규화(`어휘 선택`→어휘, `phrasal_flow`→표현)한 다수결. 이름이 `_spelling`으로 끝나면 철자, `GRAMMAR_GROUP`에 있으면 문법.
+- **근무일**: 대화가 있었던 날만 센다 (주말은 건너뜀). 11/4도 포함.
+
 ## 품질 경고 (warnings.txt)
 
 | 경고 | 조건 |
