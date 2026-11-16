@@ -142,6 +142,18 @@ A 분석(후반부 재등장 비율)의 분모. 11/12에 **한 번 고정**하�
 - **영역**: AI가 붙인 `area`를 정규화(`어휘 선택`→어휘, `phrasal_flow`→표현)한 다수결. 이름이 `_spelling`으로 끝나면 철자, `GRAMMAR_GROUP`에 있으면 문법.
 - **근무일**: 대화가 있었던 날만 센다 (주말은 건너뜀). 11/4도 포함.
 
+## B 분석 표 (`python -m analysis.speech_change`, 8일차)
+
+| 파일 | 1행 | 내용 |
+|---|---|---|
+| `length_profile.csv` | 날짜 1개 | 메시지 단어 수 `mean`, `median`, 사분위 `q1`~`q3`, `short_share` (3단어 이하 비율), `long_share` (10단어 이상 비율), `msttr50` (50단어 조각 TTR 평균), `msttr_chunks` (조각 수) |
+| `corrected_by_length.csv` | 전반부/후반부 × 길이 구간 | `bucket` = `1-4` / `5-9` / `10+`단어, `n`, `corrected_rate`, 95% 구간. 11/5부터 |
+| `style_pairs_b.csv` | 같은 스타일 짝의 날짜 1개 | 2개 이상 날짜에 나온 스타일만. 메시지 수, 평균·중앙값 단어, 긴 문장 비율, MSTTR, 교정·주도·질문 비율, 한국어·도움 요청 건수 |
+| `figures/b_length.png`, `b_vocab.png`, `b_lead.png` | | 길이 분포, 어휘 다양성, 주도율·질문 비율 추이 (숫자만 있어 git에 올림) |
+
+- **MSTTR**: 그날 말한 단어를 50단어씩 잘라 조각마다 TTR을 내고 평균. 남는 단어는 버린다. 앞 150단어 TTR보다 하루 말한 양이 적어도 쓸 수 있다.
+- **직접 표준화** (`standardized_rate`): 후반부의 길이 구간별 교정 비율을 전반부의 길이 구성으로 가중 평균 → "후반부가 전반부만큼 길게 말했다면"의 교정 비율.
+
 ## 품질 경고 (warnings.txt)
 
 | 경고 | 조건 |
