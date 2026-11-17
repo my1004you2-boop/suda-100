@@ -154,6 +154,22 @@ A 분석(후반부 재등장 비율)의 분모. 11/12에 **한 번 고정**하�
 - **MSTTR**: 그날 말한 단어를 50단어씩 잘라 조각마다 TTR을 내고 평균. 남는 단어는 버린다. 앞 150단어 TTR보다 하루 말한 양이 적어도 쓸 수 있다.
 - **직접 표준화** (`standardized_rate`): 후반부의 길이 구간별 교정 비율을 전반부의 길이 구성으로 가중 평균 → "후반부가 전반부만큼 길게 말했다면"의 교정 비율.
 
+## 최종 비교 표 (`python -m analysis.final_compare`, 9일차)
+
+| 파일 | 1행 | 내용 |
+|---|---|---|
+| `half_compare.csv` | 지표 1개 | `first` (11/5~11/11), `second` (11/12~), `diff` = 후반부 - 전반부, `ci_low`~`ci_high` = 차이의 95% 구간 (**대화 단위 부트스트랩** 2000회, seed 20261117), `pct` = 비율 지표인지 |
+| `voice_compare.csv` | 입력 방식 1개 (`voice` / `typed`) | 메시지·대화 수, 평균 단어, `corrected_rate`, `corrected_rate_clean` (받아쓰기 오류 실수만 있던 메시지는 교정 아님으로), `mistakes`, `stt_mistakes`, `mistakes_per_msg_clean`. 11/5부터 |
+| `audit_summary.csv` | 전반부 / 후반부 / 전체 | `false_mistake_share` = AI 실수 기록 중 진짜 실수가 아닌 비율, `missed_per_msg` = AI가 놓친 실수 / 메시지, `correct_agree`·`lead_agree`·`question_agree` = AI와 사람 판정 일치율 |
+| `figures/c_half_compare.png` | | 비율 지표 전반부 → 후반부 아령 그래프 + 차이 구간 (git에 올림) |
+
+**사람이 채우는 파일 (원문 포함, git 제외)**
+
+| 파일 | 컬럼 |
+|---|---|
+| `analysis/stt_flags.csv` | `session_id`, `msg_idx`, `original`, `stt` = `yes` (받아쓰기 오류가 확실) / `maybe` (애매, 계산에서 빼지 않음) |
+| `analysis/audit.csv` | 무작위 30개 (전반·후반 15개씩, seed 20261117, 한 번 만들면 덮어쓰지 않음). `ai_*` = AI 판정, `h_false_mistakes` (AI 실수 기록 중 진짜 실수가 아닌 개수), `h_missed` (놓친 실수 수), `h_should_correct` (Y/N 교정이 필요했나), `h_lead_ok`·`h_question_ok` (Y/N AI 판정이 맞나), `h_note` |
+
 ## 품질 경고 (warnings.txt)
 
 | 경고 | 조건 |

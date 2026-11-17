@@ -32,11 +32,12 @@ GRAMMAR_GROUP = {
     "question": ["question_word_order", "question_do_support", "can_you_tell_me"],
     "tense": ["present_for_habit", "past_tense_missing", "past_irregular_verb", "present_perfect", "future_will",
               "future_plan_ing", "had_to", "if_clause_present", "conditional_if"],
-    "verb_form": ["be_verb_missing", "subject_verb_agreement", "to_infinitive", "negation_do_support"],
+    "verb_form": ["be_verb_missing", "subject_verb_agreement", "to_infinitive", "negation_do_support",
+                  "be_plus_base_verb", "know_how_to", "look_forward_to_ing"],
     "article_noun": ["article_missing", "article_uncountable", "article_with_number", "plural_noun",
                      "food_uncountable", "double_determiner", "my_possessive"],
     "preposition": ["at_home", "preposition_in_episode", "preposition_missing", "preposition_on_trip",
-                    "today_no_preposition", "unneeded_preposition", "listen_to_music", "song_from"],
+                    "today_no_preposition", "unneeded_preposition", "listen_to_music", "song_from", "concentrate_on"],
     "connector": ["cause_connector", "and_then", "i_think_clause"],
 }
 GROUP_OF = {mid: g for g, ids in GRAMMAR_GROUP.items() for mid in ids}
