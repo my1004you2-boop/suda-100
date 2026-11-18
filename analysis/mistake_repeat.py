@@ -35,7 +35,7 @@ GRAMMAR_GROUP = {
     "verb_form": ["be_verb_missing", "subject_verb_agreement", "to_infinitive", "negation_do_support",
                   "be_plus_base_verb", "know_how_to", "look_forward_to_ing"],
     "article_noun": ["article_missing", "article_uncountable", "article_with_number", "plural_noun",
-                     "food_uncountable", "double_determiner", "my_possessive"],
+                     "food_uncountable", "double_determiner", "my_possessive", "article_definite_misuse"],
     "preposition": ["at_home", "preposition_in_episode", "preposition_missing", "preposition_on_trip",
                     "today_no_preposition", "unneeded_preposition", "listen_to_music", "song_from", "concentrate_on"],
     "connector": ["cause_connector", "and_then", "i_think_clause"],
@@ -192,7 +192,7 @@ def plot_reappearance(rows: list[dict], path: Path, period: str) -> None:
           [r["ci_low"] for r in rows], [r["ci_high"] for r in rows])
     ax.set_title(f"전반부 실수 ID가 후반부({period})에 다시 나온 비율", loc="left", fontsize=12.5, color=INK, pad=12,
                  fontweight="bold")
-    fig.text(0.01, 0.02, "막대 끝 선 = 95% 구간 (Wilson) · 후반부 진행 중인 중간값", fontsize=9, color=MUTED)
+    fig.text(0.01, 0.02, "막대 끝 선 = 95% 구간 (Wilson) · 11/18까지 반영한 최종값", fontsize=9, color=MUTED)
     fig.tight_layout(rect=(0, 0.06, 1, 1))
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=150, facecolor=SURFACE)
